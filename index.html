@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chess-Tac-Toe</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -55,7 +56,7 @@
         <div id="clock-rules" class="subpanel hidden">
           <label class="row">
             Time per player (seconds)
-            <input id="clock-seconds" type="number" min="10" step="10" value="120">
+            <input id="clock-seconds" type="number" min="10" step="10" value="180">
           </label>
 
           <label class="row">
@@ -82,7 +83,7 @@
 
   <!-- BLACK -->
   <div class="reserve-wrap">
-    <div id="black-clock" class="clock hidden">02:00</div>
+    <div id="black-clock" class="clock hidden">03:00</div>
     <div id="black-reserve" class="reserve"></div>
   </div>
 
@@ -92,12 +93,13 @@
   <!-- WHITE -->
   <div class="reserve-wrap">
     <div id="white-reserve" class="reserve"></div>
-    <div id="white-clock" class="clock hidden">02:00</div>
+    <div id="white-clock" class="clock hidden">03:00</div>
   </div>
 
   <!-- CONTROLS -->
   <div class="controls">
-    <button id="reset-btn" class="control-btn" type="button">Reset / Options</button>
+    <button id="menu-btn" class="control-btn" type="button">Menu</button>
+    <button id="restart-btn" class="control-btn" type="button">Restart</button>
   </div>
 
   <div id="status"></div>
