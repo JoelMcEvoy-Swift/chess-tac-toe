@@ -158,10 +158,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const adx = Math.abs(dx), ady = Math.abs(dy);
 
     switch (piece.piece) {
-      case "pawn":
-         // one square orthogonally (no diagonals)
-        return (adx === 1 && ady === 0) || (adx === 0 && ady === 1);
+      case "pawn": {
+        // Pawn moves 1 square orthogonally into an EMPTY square
+        const isOrthogonalStep = (adx === 1 && ady === 0) || (adx === 0 && ady === 1);
+        if (isOrthogonalStep) return !target;
 
+        // Pawn captures 1 square diagonally IF an enemy piece is present
+        const isDiagonalStep = (adx === 1 && ady === 1);
+        if (isDiagonalStep) return !!target && target.player !== currentPlayer;
+
+        return false;
+      }
       case "king":
         // king-like movement (if used)
         return adx <= 1 && ady <= 1;
@@ -421,4 +428,5 @@ document.addEventListener("DOMContentLoaded", () => {
   overlayEl.classList.remove("hidden");
   statusEl.textContent = "Choose options to start";
 });
+
 
