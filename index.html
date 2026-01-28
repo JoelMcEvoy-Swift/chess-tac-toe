@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chess-Tac-Toe</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- OPTIONS OVERLAY -->
+  <div id="options-overlay" class="overlay">
+    <div class="modal">
+      <h1 class="menu-title">Chess-Tac-Toe</h1>
+      <h2>Game Options</h2>
+
+      <!-- PIECES -->
+      <div class="opt">
+        <div class="opt-title">Piece selection</div>
+
+        <label class="radio-row">
+          <input type="radio" name="opt-pieces" value="classic" checked>
+          Classic (Pawn, Rook, Bishop, Knight)
+        </label>
+
+        <label class="radio-row">
+          <input type="radio" name="opt-pieces" value="custom">
+          Custom
+        </label>
+
+        <div id="custom-pieces" class="subpanel hidden">
+          <div class="small">Choose 4 pieces (duplicates allowed)</div>
+          <div class="custom-grid">
+            <select class="piece-pick"></select>
+            <select class="piece-pick"></select>
+            <select class="piece-pick"></select>
+            <select class="piece-pick"></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- CLOCK -->
+      <div class="opt">
+        <div class="opt-title">Clock</div>
+
+        <label class="radio-row">
+          <input type="radio" name="opt-clock" value="off" checked>
+          Off
+        </label>
+
+        <label class="radio-row">
+          <input type="radio" name="opt-clock" value="on">
+          On
+        </label>
+
+        <div id="clock-rules" class="subpanel hidden">
+          <label class="row">
+            Time per player (seconds)
+            <input id="clock-seconds" type="number" min="10" step="10" value="120">
+          </label>
+
+          <label class="row">
+            Increment per move (seconds)
+            <input id="clock-increment" type="number" min="0" step="1" value="0">
+          </label>
+        </div>
+      </div>
+
+      <!-- ORIENTATION -->
+      <div class="opt">
+        <div class="opt-title">Black orientation</div>
+        <label class="radio-row">
+          <input id="flip-black" type="checkbox">
+          Flip Black UI (180°)
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="start-btn" type="button">Start game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLACK -->
+  <div class="reserve-wrap">
+    <div id="black-clock" class="clock hidden">02:00</div>
+    <div id="black-reserve" class="reserve"></div>
+  </div>
+
+  <!-- BOARD -->
+  <div id="board"></div>
+
+  <!-- WHITE -->
+  <div class="reserve-wrap">
+    <div id="white-reserve" class="reserve"></div>
+    <div id="white-clock" class="clock hidden">02:00</div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <button id="reset-btn" class="control-btn" type="button">Reset / Options</button>
+  </div>
+
+  <div id="status"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
