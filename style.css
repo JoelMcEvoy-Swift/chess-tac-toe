@@ -1,3 +1,8 @@
+:root{
+  --cell: 80px;
+  --gap: 6px;
+}
+
 body {
   font-family: Arial, Helvetica, sans-serif;
   background-color: #fafafa;
@@ -10,21 +15,26 @@ body {
   align-items: center;
 }
 
+/* Prevent background scrolling when modal is open */
+body.modal-open{
+  overflow: hidden;
+}
+
 /* -------- BOARD -------- */
 
 #board {
   display: grid;
-  grid-template-columns: repeat(4, 80px);
-  grid-template-rows: repeat(4, 80px);
-  gap: 6px;
+  grid-template-columns: repeat(4, var(--cell));
+  grid-template-rows: repeat(4, var(--cell));
+  gap: var(--gap);
   margin: 20px 0;
   width: max-content;
 }
 
 /* Board cells */
 .cell {
-  width: 80px;
-  height: 80px;
+  width: var(--cell);
+  height: var(--cell);
   border: 2px solid #333;
   background-color: #eeeeee; /* base light */
   display: flex;
@@ -37,7 +47,7 @@ body {
   border-radius: 4px;
 }
 
-/* ---- Bolder checkerboard shading (4x4-safe) ---- */
+/* ---- Checkerboard shading (4x4-safe) ---- */
 /* Dark squares */
 #board .cell:nth-child(8n + 2),
 #board .cell:nth-child(8n + 4),
@@ -47,7 +57,7 @@ body {
 }
 
 /* Hover (avoid fighting stronger states) */
-#board .cell:hover:not(.selected):not(.highlight-cell) {
+#board .cell:hover:not(.selected):not(.highlight-cell):not(.win-cell) {
   background-color: #d8d8d8;
 }
 
@@ -57,15 +67,15 @@ body {
   transform: scale(1.05);
 }
 
-/* Highlight selectable pieces */
-.highlight-piece {
-  border: 3px solid #f39c12;
-  transform: scale(1.1);
-}
-
 /* Highlight valid move squares */
 .highlight-cell {
   background-color: #a2d5f2 !important;
+}
+
+/* Winning line highlight */
+.win-cell {
+  box-shadow: 0 0 0 4px rgba(243, 156, 18, 0.7) inset;
+  background-color: #ffe8a6 !important;
 }
 
 /* -------- RESERVES & CLOCKS -------- */
@@ -110,10 +120,19 @@ body {
   min-width: 90px;
 }
 
+/* Highlight the active (ticking) player's clock */
+.clock.active {
+  border-color: #f39c12;
+  box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.35);
+}
+
 /* -------- CONTROLS -------- */
 
 .controls {
   margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
 }
 
 .control-btn {
@@ -252,6 +271,29 @@ body {
 
 #start-btn:hover {
   background: #f0f0f0;
+}
+
+/* -------- Mobile layout fixes -------- */
+@media (max-width: 520px){
+  :root{
+    --gap: 8px;
+    --cell: calc((100vw - 40px - (3 * var(--gap))) / 4);
+  }
+
+  #board{
+    margin: 14px 0;
+  }
+
+  /* menu at top on mobile */
+  .overlay{
+    align-items: flex-start;
+    padding-top: 16px;
+  }
+
+  .modal{
+    max-height: calc(100vh - 32px);
+    overflow: auto;
+  }
 }
 
 /* -------- FLIP BLACK (ROBUST OPTION) -------- */
