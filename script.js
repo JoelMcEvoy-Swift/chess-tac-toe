@@ -4,7 +4,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const whiteReserveEl = document.getElementById("white-reserve");
   const blackReserveEl = document.getElementById("black-reserve");
   const statusEl = document.getElementById("status");
-  const resetBtnEl = document.getElementById("reset-btn");
+
+  // Controls
+  const menuBtnEl = document.getElementById("menu-btn");
+  const restartBtnEl = document.getElementById("restart-btn");
 
   // Options UI
   const overlayEl = document.getElementById("options-overlay");
@@ -50,8 +53,12 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedReservePiece = null;
   let gameOver = false;
 
+  // Win highlight
+  let winningLine = null;
+
   // Clock state
   let clock = { white: 0, black: 0, id: null };
+  let clockStarted = false;
 
   // Win lines
   const WIN_LINES = [
@@ -84,17 +91,32 @@ document.addEventListener("DOMContentLoaded", () => {
     blackClockEl.textContent = fmtTime(clock.black);
   }
 
+  function updateActiveClockHighlight() {
+    whiteClockEl.classList.remove("active");
+    blackClockEl.classList.remove("active");
+
+    if (!settings.clockOn || !clockStarted || gameOver) return;
+
+    if (currentPlayer === "white") whiteClockEl.classList.add("active");
+    else blackClockEl.classList.add("active");
+  }
+
   function stopClock() {
     if (clock.id) clearInterval(clock.id);
     clock.id = null;
+    updateActiveClockHighlight();
   }
 
   function startClock() {
     stopClock();
+    updateActiveClockHighlight();
+
     clock.id = setInterval(() => {
       if (gameOver) return;
+
       clock[currentPlayer] -= 1;
       updateClocks();
+
       if (clock[currentPlayer] <= 0) {
         clock[currentPlayer] = 0;
         updateClocks();
@@ -105,6 +127,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 1000);
   }
 
+  function startClockIfNeeded() {
+    if (!settings.clockOn) return;
+    if (clockStarted) return;
+    if (gameOver) return;
+
+    clockStarted = true;
+    startClock();
+    updateUI();
+  }
+
   function isBoardFull() {
     return board.every(c => c !== null);
   }
@@ -113,8 +145,11 @@ document.addEventListener("DOMContentLoaded", () => {
     for (const line of WIN_LINES) {
       const cells = line.map(i => board[i]);
       if (cells.some(c => !c)) continue;
+
       const owner = cells[0].player;
-      if (cells.every(c => c.player === owner)) return owner;
+      if (cells.every(c => c.player === owner)) {
+        return { winner: owner, line };
+      }
     }
     return null;
   }
@@ -169,8 +204,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         return false;
       }
+
       case "king":
-        // king-like movement (if used)
         return adx <= 1 && ady <= 1;
 
       case "rook":
@@ -202,18 +237,19 @@ document.addEventListener("DOMContentLoaded", () => {
       div.className = "cell";
       div.dataset.index = index;
 
+      if (winningLine && winningLine.includes(index)) {
+        div.classList.add("win-cell");
+      }
+
       if (cell) {
         const span = document.createElement("span");
-        span.className = `piece ${cell.player}`; // piece white / piece black
+        span.className = `piece ${cell.player}`;
         span.textContent = pieceSymbols[cell.player][cell.piece];
         div.appendChild(span);
       }
 
       // highlights
       if (!gameOver) {
-        if (selectedCell === null && !selectedReservePiece && cell && cell.player === currentPlayer) {
-          div.classList.add("highlight-piece");
-        }
         if (selectedCell !== null && isValidMove(selectedCell, index)) {
           div.classList.add("highlight-cell");
         }
@@ -241,6 +277,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       btn.onclick = () => {
         if (gameOver || player !== currentPlayer) return;
+
+        // Clock starts on White's first touch
+        if (currentPlayer === "white") startClockIfNeeded();
+
         selectedReservePiece = piece;
         selectedCell = null;
         renderBoard();
@@ -259,21 +299,24 @@ document.addEventListener("DOMContentLoaded", () => {
     renderBoard();
     renderReserves();
     statusEl.textContent = overrideStatus ?? `${players[currentPlayer].name}'s turn`;
+    updateActiveClockHighlight();
   }
 
   // ---------- Gameplay ----------
   function placePiece(index) {
     board[index] = { player: currentPlayer, piece: selectedReservePiece };
 
-    // remove ONE instance of that piece from reserve
     const r = players[currentPlayer].reserve;
     const i = r.indexOf(selectedReservePiece);
     if (i !== -1) r.splice(i, 1);
 
     selectedReservePiece = null;
 
-    const winner = checkWinner();
-    if (winner) return endGame(`${players[winner].name} wins!`);
+    const result = checkWinner();
+    if (result) {
+      winningLine = result.line;
+      return endGame(`${players[result.winner].name} wins!`);
+    }
     if (isBoardFull()) return endGame("Draw!");
 
     endTurn(true);
@@ -282,7 +325,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function movePiece(from, to) {
     const target = board[to];
 
-    // capture returns piece to its owner's reserve
     if (target) {
       players[target.player].reserve.push(target.piece);
     }
@@ -290,8 +332,11 @@ document.addEventListener("DOMContentLoaded", () => {
     board[to] = board[from];
     board[from] = null;
 
-    const winner = checkWinner();
-    if (winner) return endGame(`${players[winner].name} wins!`);
+    const result = checkWinner();
+    if (result) {
+      winningLine = result.line;
+      return endGame(`${players[result.winner].name} wins!`);
+    }
     if (isBoardFull()) return endGame("Draw!");
 
     endTurn(true);
@@ -299,7 +344,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function endTurn(applyIncrement) {
     if (settings.clockOn && applyIncrement) {
-      // increment goes to the player who just moved
       clock[currentPlayer] += settings.clockIncrement;
       updateClocks();
     }
@@ -308,7 +352,7 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedCell = null;
     selectedReservePiece = null;
 
-    if (settings.clockOn) startClock();
+    if (settings.clockOn && clockStarted) startClock();
     updateUI();
   }
 
@@ -324,6 +368,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // selecting/moving from board
     if (selectedCell === null) {
       if (board[index] && board[index].player === currentPlayer) {
+        // Clock starts on White's first touch
+        if (currentPlayer === "white") startClockIfNeeded();
+
         selectedCell = index;
         renderBoard();
       }
@@ -332,7 +379,6 @@ document.addEventListener("DOMContentLoaded", () => {
         movePiece(selectedCell, index);
         return;
       }
-      // clicking elsewhere cancels selection
       selectedCell = null;
       renderBoard();
     }
@@ -344,12 +390,26 @@ document.addEventListener("DOMContentLoaded", () => {
     clockRulesEl.classList.toggle("hidden", getRadio("opt-clock") !== "on");
   }
 
+  function openMenu(message = "Options menu (game paused)") {
+    stopClock();
+    overlayEl.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+    statusEl.textContent = message;
+  }
+
+  function closeMenu() {
+    overlayEl.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+
   function resetGameState() {
     board = Array(16).fill(null);
     currentPlayer = "white";
     selectedCell = null;
     selectedReservePiece = null;
     gameOver = false;
+
+    winningLine = null;
 
     const reserve = (settings.pieceMode === "classic")
       ? ["pawn", "rook", "bishop", "knight"]
@@ -363,6 +423,7 @@ document.addEventListener("DOMContentLoaded", () => {
     stopClock();
     clock.white = settings.clockSeconds;
     clock.black = settings.clockSeconds;
+    clockStarted = false;
 
     document.body.classList.toggle("flip-black", settings.flipBlack);
 
@@ -370,10 +431,11 @@ document.addEventListener("DOMContentLoaded", () => {
       whiteClockEl.classList.remove("hidden");
       blackClockEl.classList.remove("hidden");
       updateClocks();
-      startClock();
+      updateActiveClockHighlight(); // will be off until clockStarted === true
     } else {
       whiteClockEl.classList.add("hidden");
       blackClockEl.classList.add("hidden");
+      updateActiveClockHighlight();
     }
 
     updateUI("White's turn");
@@ -390,7 +452,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     settings.flipBlack = !!flipBlackEl.checked;
 
-    overlayEl.classList.add("hidden");
+    closeMenu();
     resetGameState();
   }
 
@@ -414,20 +476,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   startBtnEl.addEventListener("click", startFromMenu);
 
-  resetBtnEl.addEventListener("click", () => {
-    stopClock();
-    gameOver = false;
-    selectedCell = null;
-    selectedReservePiece = null;
-    overlayEl.classList.remove("hidden");
-    statusEl.textContent = "Choose options to start";
+  menuBtnEl.addEventListener("click", () => {
+    openMenu("Options menu (game paused)");
+  });
+
+  restartBtnEl.addEventListener("click", () => {
+    closeMenu();
+    resetGameState();
   });
 
   // Init
   syncPanels();
-  overlayEl.classList.remove("hidden");
-  statusEl.textContent = "Choose options to start";
+  openMenu("Choose options to start");
 });
-
-
-
