@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
     pieceMode: "classic",                 // classic | custom
     customPieces: ["pawn", "rook", "bishop", "knight"],
     clockOn: false,
-    clockSeconds: 120,
+    clockSeconds: 180,
     clockIncrement: 0,
     flipBlack: false
   };
@@ -159,7 +159,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     switch (piece.piece) {
       case "pawn":
+         // one square orthogonally (no diagonals)
+        return (adx === 1 && ady === 0) || (adx === 0 && ady === 1);
+
       case "king":
+        // king-like movement (if used)
         return adx <= 1 && ady <= 1;
 
       case "rook":
@@ -417,3 +421,4 @@ document.addEventListener("DOMContentLoaded", () => {
   overlayEl.classList.remove("hidden");
   statusEl.textContent = "Choose options to start";
 });
+
