@@ -385,7 +385,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (settings.customPieces.length !== 4) settings.customPieces = ["pawn", "rook", "bishop", "knight"];
 
     settings.clockOn = (getRadio("opt-clock") === "on");
-    settings.clockSeconds = Math.max(10, parseInt(clockSecondsEl.value || "120", 10));
+    settings.clockSeconds = Math.max(10, parseInt(clockSecondsEl.value || "180", 10));
     settings.clockIncrement = Math.max(0, parseInt(clockIncrementEl.value || "0", 10));
 
     settings.flipBlack = !!flipBlackEl.checked;
@@ -428,5 +428,6 @@ document.addEventListener("DOMContentLoaded", () => {
   overlayEl.classList.remove("hidden");
   statusEl.textContent = "Choose options to start";
 });
+
 
 
