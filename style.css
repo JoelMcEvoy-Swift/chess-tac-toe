@@ -20,6 +20,11 @@ body.modal-open{
   overflow: hidden;
 }
 
+/* Improve mobile tap responsiveness */
+.cell, .piece-btn, .control-btn {
+  touch-action: manipulation;
+}
+
 /* -------- BOARD -------- */
 
 #board {
@@ -53,7 +58,7 @@ body.modal-open{
 #board .cell:nth-child(8n + 4),
 #board .cell:nth-child(8n + 5),
 #board .cell:nth-child(8n + 7) {
-  background-color: #bfbfbf; /* bolder grey */
+  background-color: #bfbfbf;
 }
 
 /* Hover (avoid fighting stronger states) */
@@ -180,6 +185,8 @@ body.modal-open{
   padding: 18px 18px 14px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
   text-align: left;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
 }
 
 .menu-title {
@@ -271,6 +278,26 @@ body.modal-open{
 
 #start-btn:hover {
   background: #f0f0f0;
+}
+
+/* Rules block */
+.rules {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+}
+
+.rules p {
+  margin: 8px 0;
+}
+
+.rules ul {
+  margin: 8px 0 8px 18px;
+  padding: 0;
+}
+
+.rules li {
+  margin: 4px 0;
 }
 
 /* -------- Mobile layout fixes -------- */
