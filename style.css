@@ -3,6 +3,11 @@
   --gap: 6px;
 }
 
+/* Prevent sneaky overflow from padding/borders */
+*, *::before, *::after{
+  box-sizing: border-box;
+}
+
 body {
   font-family: Arial, Helvetica, sans-serif;
   background-color: #fafafa;
@@ -21,7 +26,7 @@ body.modal-open{
 }
 
 /* Improve mobile tap responsiveness */
-.cell, .piece-btn, .control-btn {
+.cell, .piece-btn, .control-btn, #start-btn {
   touch-action: manipulation;
 }
 
@@ -41,7 +46,7 @@ body.modal-open{
   width: var(--cell);
   height: var(--cell);
   border: 2px solid #333;
-  background-color: #eeeeee; /* base light */
+  background-color: #eeeeee;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -53,7 +58,6 @@ body.modal-open{
 }
 
 /* ---- Checkerboard shading (4x4-safe) ---- */
-/* Dark squares */
 #board .cell:nth-child(8n + 2),
 #board .cell:nth-child(8n + 4),
 #board .cell:nth-child(8n + 5),
@@ -61,7 +65,7 @@ body.modal-open{
   background-color: #bfbfbf;
 }
 
-/* Hover (avoid fighting stronger states) */
+/* Hover */
 #board .cell:hover:not(.selected):not(.highlight-cell):not(.win-cell) {
   background-color: #d8d8d8;
 }
@@ -92,14 +96,12 @@ body.modal-open{
   margin: 6px 0;
 }
 
-/* Reserve area */
 .reserve {
   display: flex;
   justify-content: center;
   gap: 8px;
 }
 
-/* Reserve buttons */
 .piece-btn {
   padding: 8px 12px;
   font-size: 24px;
@@ -115,7 +117,6 @@ body.modal-open{
   transform: scale(1.05);
 }
 
-/* Clock display */
 .clock {
   font-weight: bold;
   border: 2px solid #333;
@@ -125,7 +126,6 @@ body.modal-open{
   min-width: 90px;
 }
 
-/* Highlight the active (ticking) player's clock */
 .clock.active {
   border-color: #f39c12;
   box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.35);
@@ -153,7 +153,6 @@ body.modal-open{
   background: #f0f0f0;
 }
 
-/* Status text */
 #status {
   margin-top: 12px;
   font-weight: bold;
@@ -167,7 +166,7 @@ body.modal-open{
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   display: flex;
-  align-items: center;
+  align-items: center; /* center on desktop */
   justify-content: center;
   padding: 16px;
   z-index: 1000;
@@ -185,8 +184,10 @@ body.modal-open{
   padding: 18px 18px 14px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
   text-align: left;
+
   max-height: calc(100vh - 32px);
   overflow: auto;
+  overflow-x: hidden; /* prevent sideways scroll */
 }
 
 .menu-title {
@@ -216,6 +217,7 @@ body.modal-open{
   gap: 10px;
   align-items: center;
   margin: 6px 0;
+  flex-wrap: wrap; /* allow wrap on small screens */
 }
 
 .subpanel {
@@ -228,7 +230,7 @@ body.modal-open{
 
 .small {
   font-size: 13px;
-  margin-bottom: 8px;
+  margin: 8px 0 0;
 }
 
 .custom-grid {
@@ -280,6 +282,11 @@ body.modal-open{
   background: #f0f0f0;
 }
 
+#start-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Rules block */
 .rules {
   font-size: 14px;
@@ -300,6 +307,46 @@ body.modal-open{
   margin: 4px 0;
 }
 
+/* Online panel */
+.online-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.join-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+#join-code {
+  padding: 8px 10px;
+  border: 2px solid #333;
+  border-radius: 6px;
+  font-size: 16px;
+  text-transform: uppercase;
+}
+
+.room-pill {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 2px solid #333;
+  border-radius: 999px;
+  background: #fafafa;
+  display: inline-block;
+}
+
+#room-code-text {
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+#role-text {
+  font-weight: bold;
+}
+
 /* -------- Mobile layout fixes -------- */
 @media (max-width: 520px){
   :root{
@@ -311,28 +358,28 @@ body.modal-open{
     margin: 14px 0;
   }
 
-  /* menu at top on mobile */
+  /* top-align modal on mobile (easier to scroll) */
   .overlay{
     align-items: flex-start;
-    padding-top: 16px;
   }
 
-  .modal{
-    max-height: calc(100vh - 32px);
-    overflow: auto;
+  /* reduce overflow risks */
+  .custom-grid{
+    grid-template-columns: 1fr;
+  }
+
+  .join-row{
+    grid-template-columns: 1fr;
   }
 }
 
-/* -------- FLIP BLACK (ROBUST OPTION) -------- */
-
-/* Rotate Black's UI blocks (reserve + clock) */
+/* -------- FLIP BLACK -------- */
 .flip-black #black-reserve,
 .flip-black #black-clock {
   transform: rotate(180deg);
   transform-origin: center;
 }
 
-/* Rotate ONLY black pieces ON THE BOARD (not in reserve) */
 .flip-black #board .piece.black {
   display: inline-block;
   transform: rotate(180deg);
