@@ -20,6 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const clockSecondsEl = document.getElementById("clock-seconds");
   const clockIncrementEl = document.getElementById("clock-increment");
+  const openingTurnsEl = document.getElementById("opening-turns");
 
   const whiteClockEl = document.getElementById("white-clock");
   const blackClockEl = document.getElementById("black-clock");
@@ -39,6 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
     clockOn: false,
     clockSeconds: 180,
     clockIncrement: 0,
+    openingTurns: 0,
     flipBlack: false
   };
 
@@ -52,6 +54,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedCell = null;
   let selectedReservePiece = null;
   let gameOver = false;
+
+  // Turn counts (for opening phase)
+  let turnCount = { white: 0, black: 0 };
 
   // Win highlight
   let winningLine = null;
@@ -135,6 +140,13 @@ document.addEventListener("DOMContentLoaded", () => {
     clockStarted = true;
     startClock();
     updateUI();
+  }
+
+  function inOpeningPhase() {
+    return (
+      settings.openingTurns > 0 &&
+      (turnCount.white < settings.openingTurns || turnCount.black < settings.openingTurns)
+    );
   }
 
   function isBoardFull() {
@@ -258,7 +270,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      div.onclick = () => onCellClick(index);
+      div.onpointerdown = (e) => {
+        e.preventDefault();
+        onCellClick(index);
+      };
+
       boardEl.appendChild(div);
     });
   }
@@ -275,13 +291,20 @@ document.addEventListener("DOMContentLoaded", () => {
       span.textContent = pieceSymbols[player][piece];
       btn.appendChild(span);
 
-      btn.onclick = () => {
+      btn.onpointerdown = (e) => {
+        e.preventDefault();
         if (gameOver || player !== currentPlayer) return;
 
         // Clock starts on White's first touch
         if (currentPlayer === "white") startClockIfNeeded();
 
-        selectedReservePiece = piece;
+        // Toggle: clicking the same reserve piece unselects it
+        if (selectedReservePiece === piece) {
+          selectedReservePiece = null;
+        } else {
+          selectedReservePiece = piece;
+        }
+
         selectedCell = null;
         renderBoard();
       };
@@ -298,7 +321,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateUI(overrideStatus) {
     renderBoard();
     renderReserves();
-    statusEl.textContent = overrideStatus ?? `${players[currentPlayer].name}'s turn`;
+
+    if (!overrideStatus && inOpeningPhase()) {
+      statusEl.textContent =
+        `${players[currentPlayer].name}'s turn — place a piece (${turnCount[currentPlayer]}/${settings.openingTurns})`;
+    } else {
+      statusEl.textContent = overrideStatus ?? `${players[currentPlayer].name}'s turn`;
+    }
+
     updateActiveClockHighlight();
   }
 
@@ -343,6 +373,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function endTurn(applyIncrement) {
+    // Count completed turns (for opening phase)
+    turnCount[currentPlayer]++;
+
     if (settings.clockOn && applyIncrement) {
       clock[currentPlayer] += settings.clockIncrement;
       updateClocks();
@@ -359,29 +392,71 @@ document.addEventListener("DOMContentLoaded", () => {
   function onCellClick(index) {
     if (gameOver) return;
 
-    // placing from reserve
-    if (selectedReservePiece) {
-      if (!board[index]) placePiece(index);
-      return;
-    }
+    const clicked = board[index];
 
-    // selecting/moving from board
-    if (selectedCell === null) {
-      if (board[index] && board[index].player === currentPlayer) {
-        // Clock starts on White's first touch
+    // --- If a reserve piece is selected ---
+    if (selectedReservePiece) {
+      // Place on empty square
+      if (!clicked) {
+        placePiece(index);
+        return;
+      }
+
+      // If you click your own piece instead, switch to board selection
+      if (clicked.player === currentPlayer) {
+        selectedReservePiece = null;
+
         if (currentPlayer === "white") startClockIfNeeded();
 
         selectedCell = index;
         renderBoard();
       }
-    } else {
-      if (isValidMove(selectedCell, index)) {
-        movePiece(selectedCell, index);
-        return;
+
+      // If it's an opponent piece, do nothing (still holding reserve piece)
+      return;
+    }
+
+    // --- No reserve piece selected: board selection/move ---
+    if (selectedCell === null) {
+      // Select your piece
+      if (clicked && clicked.player === currentPlayer) {
+        if (currentPlayer === "white") startClockIfNeeded();
+        selectedCell = index;
+        renderBoard();
       }
+      return;
+    }
+
+    // If clicking the same selected piece: deselect
+    if (selectedCell === index) {
       selectedCell = null;
       renderBoard();
+      return;
     }
+
+    // If clicking another of your pieces: switch selection immediately
+    if (clicked && clicked.player === currentPlayer) {
+      selectedCell = index;
+      renderBoard();
+      return;
+    }
+
+    // Block movement during opening phase
+    if (inOpeningPhase()) {
+      selectedCell = null;
+      updateUI("Opening phase: place pieces before moving");
+      return;
+    }
+
+    // Otherwise try to move/capture
+    if (isValidMove(selectedCell, index)) {
+      movePiece(selectedCell, index);
+      return;
+    }
+
+    // Clicked an invalid square: just deselect
+    selectedCell = null;
+    renderBoard();
   }
 
   // ---------- Menu wiring ----------
@@ -410,6 +485,7 @@ document.addEventListener("DOMContentLoaded", () => {
     gameOver = false;
 
     winningLine = null;
+    turnCount = { white: 0, black: 0 };
 
     const reserve = (settings.pieceMode === "classic")
       ? ["pawn", "rook", "bishop", "knight"]
@@ -431,7 +507,7 @@ document.addEventListener("DOMContentLoaded", () => {
       whiteClockEl.classList.remove("hidden");
       blackClockEl.classList.remove("hidden");
       updateClocks();
-      updateActiveClockHighlight(); // will be off until clockStarted === true
+      updateActiveClockHighlight(); // off until clockStarted === true
     } else {
       whiteClockEl.classList.add("hidden");
       blackClockEl.classList.add("hidden");
@@ -449,6 +525,12 @@ document.addEventListener("DOMContentLoaded", () => {
     settings.clockOn = (getRadio("opt-clock") === "on");
     settings.clockSeconds = Math.max(10, parseInt(clockSecondsEl.value || "180", 10));
     settings.clockIncrement = Math.max(0, parseInt(clockIncrementEl.value || "0", 10));
+
+    const maxOpening = 4;
+    settings.openingTurns = Math.min(
+      maxOpening,
+      Math.max(0, parseInt(openingTurnsEl.value || "0", 10))
+    );
 
     settings.flipBlack = !!flipBlackEl.checked;
 
@@ -474,16 +556,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  startBtnEl.addEventListener("click", startFromMenu);
+  startBtnEl.onpointerdown = (e) => {
+    e.preventDefault();
+    startFromMenu();
+  };
 
-  menuBtnEl.addEventListener("click", () => {
+  menuBtnEl.onpointerdown = (e) => {
+    e.preventDefault();
     openMenu("Options menu (game paused)");
-  });
+  };
 
-  restartBtnEl.addEventListener("click", () => {
+  restartBtnEl.onpointerdown = (e) => {
+    e.preventDefault();
     closeMenu();
     resetGameState();
-  });
+  };
 
   // Init
   syncPanels();
