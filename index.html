@@ -66,6 +66,20 @@
         </div>
       </div>
 
+      <!-- OPENING PHASE -->
+      <div class="opt">
+        <div class="opt-title">Opening phase</div>
+
+        <label class="row">
+          Turns before movement (per player)
+          <input id="opening-turns" type="number" min="0" step="1" value="0">
+        </label>
+
+        <div class="small">
+          During the opening phase, you may only place pieces from reserve. Movement unlocks once both players have completed this many turns.
+        </div>
+      </div>
+
       <!-- ORIENTATION -->
       <div class="opt">
         <div class="opt-title">Black orientation</div>
@@ -78,6 +92,34 @@
       <div class="actions">
         <button id="start-btn" type="button">Start game</button>
       </div>
+
+      <!-- RULES -->
+      <div class="opt">
+        <div class="opt-title">How to play</div>
+
+        <div class="rules">
+          <p>
+            Chess-Tac-Toe is a two-player strategy game played on a 4×4 board.
+            Players take turns placing and moving chess pieces to form a line of four.
+          </p>
+
+          <ul>
+            <li>Each player starts with a reserve of pieces.</li>
+            <li>On your turn, you may either place a piece from your reserve onto an empty square, or move one of your pieces already on the board.</li>
+            <li>During the opening phase (if enabled), pieces may not be moved until both players have completed the required number of turns.</li>
+            <li>Pieces move and capture using their standard chess movement rules.</li>
+            <li>Pawns face all directions.</li>
+            <li>Capturing a piece returns it to its owner’s reserve.</li>
+            <li>The first player to form a straight line of four pieces (horizontal, vertical, or diagonal) wins.</li>
+            <li>If the board fills with no winner, the game is a draw.</li>
+          </ul>
+
+          <p>
+            If the clock is enabled, a player loses immediately if their time runs out.
+          </p>
+        </div>
+      </div>
+
     </div>
   </div>
 
