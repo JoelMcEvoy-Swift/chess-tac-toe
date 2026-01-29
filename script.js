@@ -1,4 +1,24 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // -------------------------------
+  // Socket.IO (online multiplayer)
+  // -------------------------------
+  const socket = io("https://YOUR-SERVICE.onrender.com", { transports: ["websocket", "polling"] });
+
+  let onlineMode = false;
+  let onlineReady = false;
+  let roomCode = null;
+  let myRole = null; // "white" | "black"
+
+  // Online UI
+  const createRoomBtnEl = document.getElementById("create-room-btn");
+  const joinRoomBtnEl = document.getElementById("join-room-btn");
+  const joinCodeEl = document.getElementById("join-code");
+  const onlineStatusEl = document.getElementById("online-status");
+  const roomPillEl = document.getElementById("room-pill");
+  const roomCodeTextEl = document.getElementById("room-code-text");
+  const roleTextEl = document.getElementById("role-text");
+  const swapSidesBtnEl = document.getElementById("swap-sides-btn");
+
   // DOM
   const boardEl = document.getElementById("board");
   const whiteReserveEl = document.getElementById("white-reserve");
@@ -35,7 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Settings
   let settings = {
-    pieceMode: "classic",                 // classic | custom
+    pieceMode: "classic",
     customPieces: ["pawn", "rook", "bishop", "knight"],
     clockOn: false,
     clockSeconds: 180,
@@ -55,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedReservePiece = null;
   let gameOver = false;
 
-  // Turn counts (for opening phase)
+  // Opening phase
   let turnCount = { white: 0, black: 0 };
 
   // Win highlight
@@ -82,6 +102,27 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---------- Helpers ----------
   function getRadio(name) {
     return document.querySelector(`input[name="${name}"]:checked`)?.value;
+  }
+
+  function setOnlineStatus(text) {
+    onlineStatusEl.textContent = text;
+  }
+
+  function setRoomPill(code, role) {
+    roomPillEl.classList.remove("hidden");
+    roomCodeTextEl.textContent = code;
+    roleTextEl.textContent = role;
+  }
+
+  function setStartEnabled() {
+    startBtnEl.disabled = onlineMode && !onlineReady;
+    if (swapSidesBtnEl) swapSidesBtnEl.disabled = !(onlineMode && onlineReady);
+  }
+
+  function myTurn() {
+    if (!onlineMode) return true;
+    if (!myRole) return false;
+    return currentPlayer === myRole;
   }
 
   function fmtTime(s) {
@@ -142,11 +183,15 @@ document.addEventListener("DOMContentLoaded", () => {
     updateUI();
   }
 
-  function inOpeningPhase() {
-    return (
-      settings.openingTurns > 0 &&
-      (turnCount.white < settings.openingTurns || turnCount.black < settings.openingTurns)
-    );
+  // Online: start clock for BOTH clients when White first touches
+  function sendClockStartIfNeeded() {
+    if (!onlineMode) return;
+    if (!settings.clockOn) return;
+    if (clockStarted) return;
+    if (gameOver) return;
+    if (myRole !== "white") return; // only white initiates
+
+    socket.emit("action", { roomCode, action: { type: "clock-start" } });
   }
 
   function isBoardFull() {
@@ -172,6 +217,13 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedReservePiece = null;
     stopClock();
     updateUI(message);
+  }
+
+  function inOpeningPhase() {
+    return (
+      settings.openingTurns > 0 &&
+      (turnCount.white < settings.openingTurns || turnCount.black < settings.openingTurns)
+    );
   }
 
   // ---------- Movement rules ----------
@@ -206,11 +258,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     switch (piece.piece) {
       case "pawn": {
-        // Pawn moves 1 square orthogonally into an EMPTY square
         const isOrthogonalStep = (adx === 1 && ady === 0) || (adx === 0 && ady === 1);
         if (isOrthogonalStep) return !target;
 
-        // Pawn captures 1 square diagonally IF an enemy piece is present
         const isDiagonalStep = (adx === 1 && ady === 1);
         if (isDiagonalStep) return !!target && target.player !== currentPlayer;
 
@@ -260,7 +310,6 @@ document.addEventListener("DOMContentLoaded", () => {
         div.appendChild(span);
       }
 
-      // highlights
       if (!gameOver) {
         if (selectedCell !== null && isValidMove(selectedCell, index)) {
           div.classList.add("highlight-cell");
@@ -284,7 +333,7 @@ document.addEventListener("DOMContentLoaded", () => {
     players[player].reserve.forEach(piece => {
       const btn = document.createElement("button");
       btn.className = "piece-btn";
-      btn.disabled = gameOver || player !== currentPlayer;
+      btn.disabled = gameOver || player !== currentPlayer || !myTurn();
 
       const span = document.createElement("span");
       span.className = `piece ${player}`;
@@ -294,17 +343,15 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.onpointerdown = (e) => {
         e.preventDefault();
         if (gameOver || player !== currentPlayer) return;
+        if (!myTurn()) return;
 
-        // Clock starts on White's first touch
-        if (currentPlayer === "white") startClockIfNeeded();
-
-        // Toggle: clicking the same reserve piece unselects it
-        if (selectedReservePiece === piece) {
-          selectedReservePiece = null;
-        } else {
-          selectedReservePiece = piece;
+        if (currentPlayer === "white") {
+          sendClockStartIfNeeded();
+          startClockIfNeeded();
         }
 
+        // Toggle selection so you can change your mind
+        selectedReservePiece = (selectedReservePiece === piece) ? null : piece;
         selectedCell = null;
         renderBoard();
       };
@@ -325,6 +372,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!overrideStatus && inOpeningPhase()) {
       statusEl.textContent =
         `${players[currentPlayer].name}'s turn — place a piece (${turnCount[currentPlayer]}/${settings.openingTurns})`;
+    } else if (!overrideStatus && onlineMode && !myTurn()) {
+      statusEl.textContent = `Opponent's turn (${players[currentPlayer].name})`;
     } else {
       statusEl.textContent = overrideStatus ?? `${players[currentPlayer].name}'s turn`;
     }
@@ -332,15 +381,13 @@ document.addEventListener("DOMContentLoaded", () => {
     updateActiveClockHighlight();
   }
 
-  // ---------- Gameplay ----------
-  function placePiece(index) {
-    board[index] = { player: currentPlayer, piece: selectedReservePiece };
+  // ---------- Apply actions (state mutations) ----------
+  function placePiece(index, piece) {
+    board[index] = { player: currentPlayer, piece };
 
     const r = players[currentPlayer].reserve;
-    const i = r.indexOf(selectedReservePiece);
+    const i = r.indexOf(piece);
     if (i !== -1) r.splice(i, 1);
-
-    selectedReservePiece = null;
 
     const result = checkWinner();
     if (result) {
@@ -354,7 +401,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function movePiece(from, to) {
     const target = board[to];
-
     if (target) {
       players[target.player].reserve.push(target.piece);
     }
@@ -373,7 +419,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function endTurn(applyIncrement) {
-    // Count completed turns (for opening phase)
     turnCount[currentPlayer]++;
 
     if (settings.clockOn && applyIncrement) {
@@ -389,72 +434,137 @@ document.addEventListener("DOMContentLoaded", () => {
     updateUI();
   }
 
+  // ---------- Send actions (online/offline) ----------
+  // Online mode: we emit and WAIT for the server broadcast,
+  // so both clients apply the same action stream.
+  function sendAction(action) {
+    if (!onlineMode) {
+      applyIncomingAction(action);
+      return;
+    }
+    if (!roomCode) return;
+    socket.emit("action", { roomCode, action });
+  }
+
+  function applyIncomingAction(action) {
+    if (action.type === "clock-start") {
+      startClockIfNeeded();
+      return;
+    }
+
+    if (action.type === "restart") {
+    	closeMenu();              
+    resetGameState();
+    	return;
+	}
+	
+    if (action.type === "sync-settings") {
+      settings = { ...settings, ...action.settings };
+
+      flipBlackEl.checked = !!settings.flipBlack;
+      clockSecondsEl.value = String(settings.clockSeconds);
+      clockIncrementEl.value = String(settings.clockIncrement);
+      openingTurnsEl.value = String(settings.openingTurns);
+
+      document.querySelectorAll('input[name="opt-pieces"]').forEach(r => r.checked = (r.value === settings.pieceMode));
+      document.querySelectorAll('input[name="opt-clock"]').forEach(r => r.checked = (r.value === (settings.clockOn ? "on" : "off")));
+
+      if (settings.customPieces?.length === 4) {
+        piecePickEls.forEach((sel, i) => sel.value = settings.customPieces[i]);
+      }
+
+      syncPanels();
+      return;
+    }
+
+    if (action.type === "start-game") {
+      closeMenu();
+      resetGameState();
+      return;
+    }
+
+    if (action.type === "place") {
+      placePiece(action.index, action.piece);
+      return;
+    }
+
+    if (action.type === "move") {
+      movePiece(action.from, action.to);
+      return;
+    }
+  }
+
+  // ---------- Input handling ----------
   function onCellClick(index) {
     if (gameOver) return;
+    if (!myTurn()) return;
 
     const clicked = board[index];
 
-    // --- If a reserve piece is selected ---
+    // placing from reserve
     if (selectedReservePiece) {
-      // Place on empty square
       if (!clicked) {
-        placePiece(index);
+        if (currentPlayer === "white") {
+          sendClockStartIfNeeded();
+          startClockIfNeeded();
+        }
+        sendAction({ type: "place", index, piece: selectedReservePiece });
         return;
       }
 
-      // If you click your own piece instead, switch to board selection
+      // clicking your own piece cancels reserve selection and selects board piece
       if (clicked.player === currentPlayer) {
         selectedReservePiece = null;
-
-        if (currentPlayer === "white") startClockIfNeeded();
-
+        if (currentPlayer === "white") {
+          sendClockStartIfNeeded();
+          startClockIfNeeded();
+        }
         selectedCell = index;
         renderBoard();
       }
-
-      // If it's an opponent piece, do nothing (still holding reserve piece)
       return;
     }
 
-    // --- No reserve piece selected: board selection/move ---
+    // selecting/moving from board
     if (selectedCell === null) {
-      // Select your piece
       if (clicked && clicked.player === currentPlayer) {
-        if (currentPlayer === "white") startClockIfNeeded();
+        if (currentPlayer === "white") {
+          sendClockStartIfNeeded();
+          startClockIfNeeded();
+        }
         selectedCell = index;
         renderBoard();
       }
       return;
     }
 
-    // If clicking the same selected piece: deselect
+    // deselect same
     if (selectedCell === index) {
       selectedCell = null;
       renderBoard();
       return;
     }
 
-    // If clicking another of your pieces: switch selection immediately
+    // switch selection
     if (clicked && clicked.player === currentPlayer) {
       selectedCell = index;
       renderBoard();
       return;
     }
 
-    // Block movement during opening phase
+    // opening phase blocks movement
     if (inOpeningPhase()) {
       selectedCell = null;
       updateUI("Opening phase: place pieces before moving");
       return;
     }
 
-    // Otherwise try to move/capture
+    // try move/capture
     if (isValidMove(selectedCell, index)) {
-      movePiece(selectedCell, index);
+      sendAction({ type: "move", from: selectedCell, to: index });
       return;
     }
 
-    // Clicked an invalid square: just deselect
     selectedCell = null;
     renderBoard();
   }
@@ -465,7 +575,7 @@ document.addEventListener("DOMContentLoaded", () => {
     clockRulesEl.classList.toggle("hidden", getRadio("opt-clock") !== "on");
   }
 
-  function openMenu(message = "Options menu (game paused)") {
+  function openMenu(message = "Choose options") {
     stopClock();
     overlayEl.classList.remove("hidden");
     document.body.classList.add("modal-open");
@@ -507,7 +617,7 @@ document.addEventListener("DOMContentLoaded", () => {
       whiteClockEl.classList.remove("hidden");
       blackClockEl.classList.remove("hidden");
       updateClocks();
-      updateActiveClockHighlight(); // off until clockStarted === true
+      updateActiveClockHighlight();
     } else {
       whiteClockEl.classList.add("hidden");
       blackClockEl.classList.add("hidden");
@@ -517,7 +627,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateUI("White's turn");
   }
 
-  function startFromMenu() {
+  function readSettingsFromMenu() {
     settings.pieceMode = getRadio("opt-pieces") || "classic";
     settings.customPieces = piecePickEls.map(s => s.value).filter(Boolean);
     if (settings.customPieces.length !== 4) settings.customPieces = ["pawn", "rook", "bishop", "knight"];
@@ -533,7 +643,32 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
     settings.flipBlack = !!flipBlackEl.checked;
+  }
 
+  function startFromMenu() {
+    if (onlineMode) {
+      if (!onlineReady) return;
+
+      if (myRole !== "white") {
+        setOnlineStatus("Waiting for host to start...");
+        setStartEnabled();
+        return;
+      }
+
+      // Host chooses settings
+      readSettingsFromMenu();
+
+      // Tell both clients the settings + start
+      sendAction({ type: "sync-settings", settings });
+      sendAction({ type: "start-game" });
+
+      // IMPORTANT: do NOT reset locally here.
+      // We reset when we receive start-game broadcast.
+      return;
+    }
+
+    // Offline
+    readSettingsFromMenu();
     closeMenu();
     resetGameState();
   }
@@ -569,10 +704,112 @@ document.addEventListener("DOMContentLoaded", () => {
   restartBtnEl.onpointerdown = (e) => {
     e.preventDefault();
     closeMenu();
-    resetGameState();
+
+    if (onlineMode && roomCode) {
+      socket.emit("action", { roomCode, action: { type: "restart" } });
+    } else {
+      resetGameState();
+    }
+  };
+
+  // Swap sides (online only)
+  if (swapSidesBtnEl) {
+    swapSidesBtnEl.onpointerdown = (e) => {
+      e.preventDefault();
+      if (!(onlineMode && onlineReady && roomCode)) return;
+      socket.emit("action", { roomCode, action: { type: "swap-sides" } });
+    };
+  }
+
+  // -------------------------------
+  // Online: socket events
+  // -------------------------------
+  socket.on("connect", () => {
+    setOnlineStatus("Offline mode (local game) — server connected");
+  });
+
+  socket.on("room-created", ({ roomCode: code, role }) => {
+    onlineMode = true;
+    onlineReady = false;
+    roomCode = code;
+    myRole = role;
+
+    setRoomPill(code, role);
+    setOnlineStatus(`Room created. Share code: ${code}. Waiting for opponent...`);
+    setStartEnabled();
+  });
+
+  socket.on("room-joined", ({ roomCode: code, role }) => {
+    onlineMode = true;
+    onlineReady = false;
+    roomCode = code;
+    myRole = role;
+
+    setRoomPill(code, role);
+    setOnlineStatus(`Joined room ${code}. Waiting for host to start...`);
+    setStartEnabled();
+  });
+
+  socket.on("room-ready", ({ roomCode: code }) => {
+    onlineMode = true;
+    onlineReady = true;
+    roomCode = code;
+
+    if (myRole === "white") {
+      setOnlineStatus(`Opponent joined. You are White. Configure options, then Start.`);
+    } else {
+      setOnlineStatus(`Connected. You are Black. Waiting for host to start...`);
+    }
+
+    setStartEnabled();
+  });
+
+  socket.on("roles-updated", ({ roomCode: code, roles }) => {
+    // roles is { socketId: "white"/"black", ... }
+    const newRole = roles?.[socket.id];
+    if (!newRole) return;
+    myRole = newRole;
+    setRoomPill(code, myRole);
+    setOnlineStatus(`Sides swapped. You are now ${myRole}.`);
+    setStartEnabled();
+  });
+
+  socket.on("opponent-left", () => {
+    onlineReady = false;
+    setOnlineStatus("Opponent left. Waiting for opponent...");
+    setStartEnabled();
+  });
+
+  socket.on("room-error", (msg) => {
+    setOnlineStatus(`Online error: ${msg}`);
+  });
+
+  socket.on("action", (action) => {
+    // Receive actions (including your own) and apply
+    applyIncomingAction(action);
+  });
+
+  createRoomBtnEl.onpointerdown = (e) => {
+    e.preventDefault();
+    socket.emit("create-room");
+  };
+
+  joinRoomBtnEl.onpointerdown = (e) => {
+    e.preventDefault();
+    const code = String(joinCodeEl.value || "").trim().toUpperCase();
+    if (!code) {
+      setOnlineStatus("Enter a room code to join.");
+      return;
+    }
+    socket.emit("join-room", code);
   };
 
   // Init
-  syncPanels();
-  openMenu("Choose options to start");
+  function initMenu() {
+    syncPanels();
+    openMenu("Choose options to start");
+    setStartEnabled();
+  }
+
+  initMenu();
 });
