@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // -------------------------------
   // Socket.IO (online multiplayer)
   // -------------------------------
-  const socket = io("https://YOUR-SERVICE.onrender.com", { transports: ["websocket", "polling"] });
+  const socket = io("https://chess-tac-toe-server.onrender.com", { transports: ["websocket", "polling"] });
 
   let onlineMode = false;
   let onlineReady = false;
@@ -813,3 +813,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initMenu();
 });
+
