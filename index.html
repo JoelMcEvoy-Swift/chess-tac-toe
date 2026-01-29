@@ -14,6 +14,31 @@
       <h1 class="menu-title">Chess-Tac-Toe</h1>
       <h2>Game Options</h2>
 
+      <!-- ONLINE MULTIPLAYER -->
+      <div class="opt">
+        <div class="opt-title">Online multiplayer (beta)</div>
+
+        <div class="online-grid">
+          <button id="create-room-btn" class="control-btn" type="button">Create room</button>
+
+          <div class="join-row">
+            <input id="join-code" type="text" placeholder="Enter code" maxlength="8" />
+            <button id="join-room-btn" class="control-btn" type="button">Join</button>
+          </div>
+        </div>
+
+        <div id="online-status" class="small">
+          Offline mode (local game)
+        </div>
+
+        <div id="room-pill" class="room-pill hidden">
+          Room: <span id="room-code-text"></span> · You are <span id="role-text"></span>
+        </div>
+
+        <button id="swap-sides-btn" class="control-btn" type="button" disabled>Swap colours (restart)</button>
+        </div>
+      
+
       <!-- PIECES -->
       <div class="opt">
         <div class="opt-title">Piece selection</div>
@@ -146,6 +171,7 @@
 
   <div id="status"></div>
 
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
